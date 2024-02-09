@@ -1,4 +1,4 @@
-package com.billionaires
+package io.github.ibrahimyildiz.billionaires
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

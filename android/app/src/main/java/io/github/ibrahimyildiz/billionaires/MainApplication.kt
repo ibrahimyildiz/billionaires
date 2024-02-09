@@ -1,4 +1,4 @@
-package com.billionaires
+package io.github.ibrahimyildiz.billionaires
 
 import android.app.Application
 import com.facebook.react.PackageList

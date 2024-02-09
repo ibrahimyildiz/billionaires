@@ -1,118 +1,132 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React, {useState, useEffect, memo} from 'react';
+import {View, ActivityIndicator, StyleSheet} from 'react-native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import HeaderView from './src/components/Header/HeaderView';
+import HomeView from './src/components/Home/HomeView';
+import PersonView from './src/components/Person/PersonView';
+import PersonDetail from './src/components/Person/PersonDetail';
+import CountryView from './src/components/Country/CountryView';
+import SourceView from './src/components/Source/SourceView';
+import IndustryView from './src/components/Industry/IndustryView';
+import ExchangeView from './src/components/Exchange/ExchangeView';
+import CompanyView from './src/components/Exchange/CompanyView';
+import FooterView from './src/components/Footer/FooterView';
+import FileConstants from './src/utils/FileConstants';
+import { MMKV } from 'react-native-mmkv';
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+const App = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorFlag, setErrorFlag] = useState(false);
+  const Stack = createNativeStackNavigator();
+  const AsyncStorage = new MMKV();
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
-
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+  const MyTheme = {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      background: '#FFFFFF',
+    },
   };
 
+  const downloadPersonData = async () => {
+    await fetch(FileConstants.API_ENDPOINT)
+      .then(response => {
+        if (response.ok) {
+          console.log('Downloading data from remote url');
+          return response.json();
+        } else {
+          throw new Error('Error!');
+        }
+      })
+      .then(json => {
+        saveDBPersonData(json.personList.personsLists); // save to DB
+      })
+      .catch(error => {
+        setErrorFlag(true);
+        console.error('Error fetching data:', errorFlag + '-' + error);
+      });
+  };
+
+  const saveDBPersonData = async (personDataObject: any) => {
+    try {
+      AsyncStorage.set('personDataList', JSON.stringify(personDataObject));
+      AsyncStorage.set('lastExecutionTimestamp', String(Date.now()));
+
+      console.log('Data saved successfully!');
+    } catch (error) {
+      console.error('Error saving data:', error);
+    }
+  };
+
+  useEffect(() => {
+    const downloadPersonDataDaily = async () => {
+      try {
+        const lastExecutionTimestamp = AsyncStorage.getString(
+          'lastExecutionTimestamp',
+        );
+        const currentTimestamp = Date.now();
+
+        if (
+          !lastExecutionTimestamp ||
+          currentTimestamp - Number(lastExecutionTimestamp) >=
+            24 * 60 * 60 * 1000
+        ) {
+          console.log('Executing the daily operation...');
+          await downloadPersonData();
+          AsyncStorage.set(
+            'lastExecutionTimestamp',
+            String(currentTimestamp),
+          );
+        } else {
+          console.log('Daily operation already executed today.');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+
+    const retrievePersonData = async () => {
+      setIsLoading(true);
+      await downloadPersonDataDaily();
+      setIsLoading(false);
+    };
+
+    retrievePersonData();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <View style={styles.isLoading}>
+        <ActivityIndicator size={'large'} color="#18A0FB" />
+      </View>
+    );
+  }
+
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <NavigationContainer theme={MyTheme}>
+      <Stack.Navigator initialRouteName="Home">
+        <Stack.Screen name="Header" component={HeaderView} />
+        <Stack.Screen name="Home" component={HomeView} />
+        <Stack.Screen name="Exchange" component={ExchangeView} />
+        <Stack.Screen name="Company" component={CompanyView} />
+        <Stack.Screen name="Person" component={PersonView} />
+        <Stack.Screen name="Person Detail" component={PersonDetail} />
+        <Stack.Screen name="Country" component={CountryView} />
+        <Stack.Screen name="Source" component={SourceView} />
+        <Stack.Screen name="Industry" component={IndustryView} />
+        <Stack.Screen name="Footer" component={FooterView} />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
+  isLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
-export default App;
+export default memo(App);
